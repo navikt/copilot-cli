@@ -1,0 +1,18 @@
+{
+    "name": "@navikt/copilot-cli",
+    "version": "0.0.1",
+    "description": "Copilot config management CLI for NAV teams",
+    "bin": {
+        "ccli": "./bin/ccli"
+    },
+    "type": "module",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/navikt/copilot-cli"
+    },
+    "publishConfig": {
+        "registry": "https://registry.npmjs.org",
+        "access": "public"
+    }
+}

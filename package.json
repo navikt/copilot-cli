@@ -1,0 +1,35 @@
+{
+    "name": "copilot-cli-workspace",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "tsc": "tsc --noEmit",
+        "lint": "eslint 'src/**/*.ts'",
+        "build-cli": "bun run src/build.ts",
+        "build": "rm -rf dist/bin && bun run build-cli && dist/bin/ccli --help"
+    },
+    "dependencies": {
+        "@octokit/rest": "^21.1.1",
+        "chalk": "^5.4.1",
+        "inquirer": "^12.3.2",
+        "remeda": "^2.21.0",
+        "simple-git": "^3.27.0",
+        "yaml": "^2.7.0",
+        "yargs": "^17.7.2"
+    },
+    "devDependencies": {
+        "@types/bun": "^1.2.4",
+        "@types/yargs": "^17.0.33",
+        "typescript": "^5.7.3"
+    },
+    "eslintConfig": {
+        "root": true,
+        "parser": "@typescript-eslint/parser",
+        "plugins": [
+            "@typescript-eslint"
+        ],
+        "rules": {
+            "no-console": "warn"
+        }
+    }
+}
