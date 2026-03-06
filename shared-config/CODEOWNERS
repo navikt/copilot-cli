@@ -1,0 +1,7 @@
+# Default: team-esyfo som maintainers
+* @navikt/team-esyfo
+
+# Fagteam eier sine domener (utvides etter hvert som team bidrar):
+# /instructions/nais.instructions.md    @navikt/nais
+# /instructions/security.instructions.md @navikt/security-champions
+# /prompts/nais-manifest.prompt.md       @navikt/nais
