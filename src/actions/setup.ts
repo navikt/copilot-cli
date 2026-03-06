@@ -47,9 +47,11 @@ export async function setupAction(options: SetupOptions = {}): Promise<void> {
     // Ensure config repos are cloned
     await ensureConfigRepos(teamConfig)
 
-    // Resolve team config path (if configured and cloned)
+    // Resolve team config path (local override or cloned repo)
     let teamConfigPath: string | null = null
-    if (teamConfig.team_config) {
+    if (Bun.env.TEAM_CONFIG_PATH) {
+        teamConfigPath = Bun.env.TEAM_CONFIG_PATH
+    } else if (teamConfig.team_config) {
         const teamConfigRepoDir = path.join(getCacheDir(team), 'team-config-repo')
         const candidatePath = path.join(teamConfigRepoDir, teamConfig.team_config.path)
         if (fs.existsSync(candidatePath)) {
@@ -77,10 +79,19 @@ async function ensureConfigRepos(teamConfig: TeamConfig): Promise<void> {
     const { org } = teamConfig
 
     // Shared config
-    const sharedRemote = `https://github.com/${org}/${SHARED_CONFIG_REPO}.git`
-    await cloneOrPullConfigRepo(sharedRemote, SHARED_CONFIG_BASE, SHARED_CONFIG_REPO)
+    if (Bun.env.COPILOT_CONFIG_PATH) {
+        log(chalk.dim(`  Bruker lokal shared config: ${SHARED_CONFIG_BASE}`))
+    } else {
+        const sharedRemote = `https://github.com/${org}/${SHARED_CONFIG_REPO}.git`
+        await cloneOrPullConfigRepo(sharedRemote, SHARED_CONFIG_BASE, SHARED_CONFIG_REPO)
+    }
 
     // Team config
+    if (Bun.env.TEAM_CONFIG_PATH) {
+        log(chalk.dim(`  Bruker lokal team config: ${Bun.env.TEAM_CONFIG_PATH}`))
+        return
+    }
+
     if (teamConfig.team_config) {
         const tcRepoParts = teamConfig.team_config.repo.split('/')
         const tcOrg = tcRepoParts.length > 1 ? tcRepoParts[0] : org

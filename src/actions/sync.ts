@@ -60,9 +60,21 @@ function spawnOrThrow(cmd: string[], cwd: string): void {
 async function cloneConfigRepos(teamConfig: TeamConfig): Promise<string | null> {
     const { org } = teamConfig
 
-    const sharedRemote = `https://github.com/${org}/${SHARED_CONFIG_REPO}.git`
-    await cloneOrPullConfigRepo(sharedRemote, SHARED_CONFIG_BASE, SHARED_CONFIG_REPO)
+    // Clone/pull shared config unless local override is set
+    if (Bun.env.COPILOT_CONFIG_PATH) {
+        log(chalk.dim(`  Bruker lokal shared config: ${SHARED_CONFIG_BASE}`))
+    } else {
+        const sharedRemote = `https://github.com/${org}/${SHARED_CONFIG_REPO}.git`
+        await cloneOrPullConfigRepo(sharedRemote, SHARED_CONFIG_BASE, SHARED_CONFIG_REPO)
+    }
 
+    // Use local team config override if set
+    if (Bun.env.TEAM_CONFIG_PATH) {
+        log(chalk.dim(`  Bruker lokal team config: ${Bun.env.TEAM_CONFIG_PATH}`))
+        return Bun.env.TEAM_CONFIG_PATH
+    }
+
+    // Clone/pull team config repo if configured
     if (!teamConfig.team_config) return null
 
     const tcRepoParts = teamConfig.team_config.repo.split('/')

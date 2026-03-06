@@ -1,0 +1,14 @@
+{
+    "name": "copilot-agents",
+    "description": "Team agents placeholder. Add team-specific agents to agents/ directory.",
+    "version": "1.0.0",
+    "author": {
+        "name": "{{team_name}}",
+        "url": "https://github.com/{{org}}/copilot-config"
+    },
+    "homepage": "https://github.com/navikt/copilot-cli",
+    "repository": "https://github.com/navikt/copilot-cli",
+    "license": "MIT",
+    "keywords": ["nav", "copilot", "orchestration"],
+    "agents": "agents/"
+}
