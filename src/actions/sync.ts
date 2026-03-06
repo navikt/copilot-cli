@@ -1,4 +1,3 @@
-import fs from 'node:fs'
 import path from 'node:path'
 
 import chalk from 'chalk'
@@ -6,11 +5,10 @@ import { confirm } from '@inquirer/prompts'
 
 import { log } from '../common/log.ts'
 import { Gitter } from '../common/git.ts'
-import { getCacheDir, getGitCacheDir } from '../common/cache.ts'
+import { getGitCacheDir } from '../common/cache.ts'
 import { getOctokitClient } from '../common/octokit.ts'
-import { cloneOrPullConfigRepo } from '../common/config-repos.ts'
+import { ensureConfigRepos } from '../common/config-repos.ts'
 import { requireTeamConfig } from '../config/team-config.ts'
-import type { TeamConfig } from '../config/team-config.ts'
 import { loadCopilotSyncConfig } from '../config/sync-config.ts'
 import type { RepoProfile } from '../config/sync-config.ts'
 import { SHARED_CONFIG_BASE } from '../config/paths.ts'
@@ -20,7 +18,6 @@ import { detectRepoStack, logStackInfo } from '../config/detector.ts'
 import { assembleForRepo } from '../config/assembler.ts'
 import type { AssemblyResult } from '../config/assembler.ts'
 
-const SHARED_CONFIG_REPO = 'copilot-config'
 const BRANCH_NAME = 'copilot-config-sync'
 const COMMIT_MESSAGE = 'chore: oppdater copilot-config [skip ci]'
 
@@ -55,37 +52,6 @@ function spawnOrThrow(cmd: string[], cwd: string): void {
         const stderr = result.stderr?.toString().trim() ?? ''
         throw new Error(`Command failed: ${cmd.join(' ')}${stderr ? ` — ${stderr}` : ''}`)
     }
-}
-
-async function cloneConfigRepos(teamConfig: TeamConfig): Promise<string | null> {
-    const { org } = teamConfig
-
-    // Clone/pull shared config unless local override is set
-    if (Bun.env.COPILOT_CONFIG_PATH) {
-        log(chalk.dim(`  Bruker lokal shared config: ${SHARED_CONFIG_BASE}`))
-    } else {
-        const sharedRemote = `https://github.com/${org}/${SHARED_CONFIG_REPO}.git`
-        await cloneOrPullConfigRepo(sharedRemote, SHARED_CONFIG_BASE, SHARED_CONFIG_REPO)
-    }
-
-    // Use local team config override if set
-    if (Bun.env.TEAM_CONFIG_PATH) {
-        log(chalk.dim(`  Bruker lokal team config: ${Bun.env.TEAM_CONFIG_PATH}`))
-        return Bun.env.TEAM_CONFIG_PATH
-    }
-
-    // Clone/pull team config repo if configured
-    if (!teamConfig.team_config) return null
-
-    const tcRepoParts = teamConfig.team_config.repo.split('/')
-    const tcOrg = tcRepoParts.length > 1 ? tcRepoParts[0] : org
-    const tcRepo = tcRepoParts.length > 1 ? tcRepoParts[1] : tcRepoParts[0]
-
-    const teamConfigCloneDir = path.join(getCacheDir(teamConfig.team), 'team-config-repo')
-    const teamRemote = `https://github.com/${tcOrg}/${tcRepo}.git`
-    await cloneOrPullConfigRepo(teamRemote, teamConfigCloneDir, `${tcOrg}/${tcRepo}`)
-
-    return path.join(teamConfigCloneDir, teamConfig.team_config.path)
 }
 
 async function fetchReposByTopic(org: string, topic: string): Promise<RepoNode[]> {
@@ -189,7 +155,7 @@ export async function syncAction(options: SyncOptions = {}): Promise<void> {
 
     // 1. Clone/pull config repos
     log(chalk.green('Henter konfigurasjon...'))
-    const teamConfigPath = await cloneConfigRepos(teamConfig)
+    const { teamConfigPath } = await ensureConfigRepos(teamConfig)
 
     // 2. Load sync config from shared repo
     const syncConfigPath = path.join(SHARED_CONFIG_BASE, 'config.yml')

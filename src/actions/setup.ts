@@ -4,14 +4,10 @@ import path from 'node:path'
 import chalk from 'chalk'
 
 import { log } from '../common/log.ts'
-import { getCacheDir } from '../common/cache.ts'
-import { cloneOrPullConfigRepo } from '../common/config-repos.ts'
+import { ensureConfigRepos } from '../common/config-repos.ts'
 import { resolveHome } from '../common/env.ts'
 import { requireTeamConfig } from '../config/team-config.ts'
-import type { TeamConfig } from '../config/team-config.ts'
 import { SHARED_CONFIG_BASE } from '../config/paths.ts'
-
-const SHARED_CONFIG_REPO = 'copilot-config'
 
 const HOME = resolveHome()
 const COPILOT_DIR = path.join(HOME, '.copilot')
@@ -44,20 +40,8 @@ export async function setupAction(options: SetupOptions = {}): Promise<void> {
 
     log(chalk.green(`\n🔧 Setter opp GitHub Copilot for ${team}\n`))
 
-    // Ensure config repos are cloned
-    await ensureConfigRepos(teamConfig)
-
-    // Resolve team config path (local override or cloned repo)
-    let teamConfigPath: string | null = null
-    if (Bun.env.TEAM_CONFIG_PATH) {
-        teamConfigPath = Bun.env.TEAM_CONFIG_PATH
-    } else if (teamConfig.team_config) {
-        const teamConfigRepoDir = path.join(getCacheDir(team), 'team-config-repo')
-        const candidatePath = path.join(teamConfigRepoDir, teamConfig.team_config.path)
-        if (fs.existsSync(candidatePath)) {
-            teamConfigPath = candidatePath
-        }
-    }
+    // Ensure config repos are cloned and resolve team config path
+    const { teamConfigPath } = await ensureConfigRepos(teamConfig)
 
     await installPlugin(pluginName, pluginTarget, teamConfigPath, options.force ?? false)
     const registerOk = await registerPlugin(pluginName, pluginTarget)
@@ -69,38 +53,6 @@ export async function setupAction(options: SetupOptions = {}): Promise<void> {
     }
     log(chalk.dim('  Plugin installert i: ' + pluginTarget))
     log(chalk.dim('\n  Start Copilot på nytt for at endringene skal tre i kraft.'))
-}
-
-// ---------------------------------------------------------------------------
-// Config repo management
-// ---------------------------------------------------------------------------
-
-async function ensureConfigRepos(teamConfig: TeamConfig): Promise<void> {
-    const { org } = teamConfig
-
-    // Shared config
-    if (Bun.env.COPILOT_CONFIG_PATH) {
-        log(chalk.dim(`  Bruker lokal shared config: ${SHARED_CONFIG_BASE}`))
-    } else {
-        const sharedRemote = `https://github.com/${org}/${SHARED_CONFIG_REPO}.git`
-        await cloneOrPullConfigRepo(sharedRemote, SHARED_CONFIG_BASE, SHARED_CONFIG_REPO)
-    }
-
-    // Team config
-    if (Bun.env.TEAM_CONFIG_PATH) {
-        log(chalk.dim(`  Bruker lokal team config: ${Bun.env.TEAM_CONFIG_PATH}`))
-        return
-    }
-
-    if (teamConfig.team_config) {
-        const tcRepoParts = teamConfig.team_config.repo.split('/')
-        const tcOrg = tcRepoParts.length > 1 ? tcRepoParts[0] : org
-        const tcRepo = tcRepoParts.length > 1 ? tcRepoParts[1] : tcRepoParts[0]
-
-        const teamConfigCloneDir = path.join(getCacheDir(teamConfig.team), 'team-config-repo')
-        const teamRemote = `https://github.com/${tcOrg}/${tcRepo}.git`
-        await cloneOrPullConfigRepo(teamRemote, teamConfigCloneDir, `${tcOrg}/${tcRepo}`)
-    }
 }
 
 // ---------------------------------------------------------------------------
