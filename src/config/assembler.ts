@@ -93,12 +93,22 @@ export async function assembleForRepo(
     //    Base: assembled from shared config templates.
     //    Team layer: append all/copilot-instructions.md if it exists.
     const copilotInstructionsPath = path.join(githubDir, 'copilot-instructions.md')
-    let instructionsContent = assembleCopilotInstructions(files.copilotInstructions, stack)
+    const baseInstructionsContent = assembleCopilotInstructions(files.copilotInstructions, stack)
+    let instructionsContent = baseInstructionsContent
 
     if (teamConfigPath) {
         const teamInstructions = await readTeamFile(teamConfigPath, 'all/copilot-instructions.md')
         if (teamInstructions !== null) {
             instructionsContent = instructionsContent.trimEnd() + '\n\n' + teamInstructions
+        }
+
+        // Append profile-specific copilot-instructions.md (e.g. backend/, frontend/)
+        const profilesToOverlay = resolveProfilesToOverlay(profile, stack)
+        for (const p of profilesToOverlay) {
+            const profileInstructions = await readTeamFile(teamConfigPath, `${p}/copilot-instructions.md`)
+            if (profileInstructions !== null) {
+                instructionsContent = instructionsContent.trimEnd() + '\n\n' + profileInstructions
+            }
         }
 
         // Also append repo-specific copilot-instructions.md if present
@@ -110,6 +120,12 @@ export async function assembleForRepo(
     }
 
     await scaffoldIfMissing(copilotInstructionsPath, instructionsContent, result)
+
+    // 1b. Write managed base instructions file (updated on every sync)
+    const repoContextPath = path.join(instructionsDir, 'repo-context.instructions.md')
+    managedFiles.add(repoContextPath)
+    const repoContextContent = '---\napplyTo: "**"\n---\n' + baseInstructionsContent
+    await writeIfChanged(repoContextPath, withManagedHeader(repoContextContent), result)
 
     // 2. Copy team agent (renamed to team.agent.md in target)
     if (files.teamAgent) {
@@ -153,10 +169,16 @@ export async function assembleForRepo(
         await writeIfChanged(skillPath, withManagedHeader(content), result)
     }
 
-    // 7. Overlay team config files (all/ and repos/{repoName}/)
+    // 7. Overlay team config files (all/ → profile/ → repos/{repoName}/)
     if (teamConfigPath) {
         const repoName = stack.repoName ?? path.basename(repoPath)
         await overlayTeamConfigDir(teamConfigPath, 'all', repoPath, managedFiles, result)
+
+        const profilesToOverlay = resolveProfilesToOverlay(profile, stack)
+        for (const p of profilesToOverlay) {
+            await overlayTeamConfigDir(teamConfigPath, p, repoPath, managedFiles, result)
+        }
+
         await overlayTeamConfigDir(teamConfigPath, `repos/${repoName}`, repoPath, managedFiles, result)
     }
 
@@ -201,6 +223,22 @@ export function resolveConditionalFiles(
         }
         files.prompts.push('kafka-topic.prompt.md')
     }
+}
+
+// ---------------------------------------------------------------------------
+// Profile overlay resolution
+// ---------------------------------------------------------------------------
+
+/**
+ * Determine which profile directories to overlay from team config.
+ * For monorepos with multiple sub-profiles, overlay all of them.
+ * For single-profile repos, overlay just the one profile.
+ */
+function resolveProfilesToOverlay(profile: RepoProfile, stack: RepoStackInfo): RepoProfile[] {
+    if (stack.subProfiles && stack.subProfiles.length > 1) {
+        return stack.subProfiles
+    }
+    return [profile]
 }
 
 // ---------------------------------------------------------------------------

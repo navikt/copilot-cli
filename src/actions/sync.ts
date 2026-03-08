@@ -4,6 +4,7 @@ import chalk from 'chalk'
 import { confirm } from '@inquirer/prompts'
 
 import { log } from '../common/log.ts'
+import { checkForUpdates, displayUpdateNotice } from '../common/version-check.ts'
 import { Gitter } from '../common/git.ts'
 import { getGitCacheDir } from '../common/cache.ts'
 import { getOctokitClient } from '../common/octokit.ts'
@@ -139,6 +140,9 @@ function logAssemblyResult(assembly: AssemblyResult): void {
 }
 
 export async function syncAction(options: SyncOptions = {}): Promise<void> {
+    const updateCheck = await checkForUpdates()
+    if (updateCheck?.isOutdated) displayUpdateNotice(updateCheck)
+
     if (!options.repo && !options.all) {
         log(chalk.yellow('Spesifiser --repo <navn> for ett repo, eller --all for alle repos.'))
         log(chalk.dim('  Eksempler:'))

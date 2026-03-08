@@ -21,13 +21,13 @@ CLI that distributes GitHub Copilot configuration (instructions, prompts, skills
 The output assembled by `ccli sync` follows a 3-layer model:
 
 1. **User agents** (Lag 1) — Role-based agents installed locally via `ccli setup`
-2. **Repo context** (Lag 2) — Instructions, prompts, skills generated per repo by `ccli sync` based on detected stack
+2. **Repo context** (Lag 2) — Instructions, prompts, skills generated per repo by `ccli sync` based on detected stack. Base-instructions are written to `instructions/repo-context.instructions.md` (managed, `applyTo: "**"`) and updated on every sync. `copilot-instructions.md` is scaffolded once and then owned by the repo.
 3. **MCP/platform tools** (Lag 3) — External tooling (if available)
 
 Config is sourced from two places:
 
 - **Shared config** (`shared-config/`) — Org-wide templates and instructions. `config.yml` maps profiles (backend/frontend/microfrontend/other) → file lists. These files are **templates**, not application code — they contain `{{variables}}` that the assembler replaces per-repo.
-- **Team config** — Team-specific overrides, agents, and per-repo customizations from an external repo (e.g. `copilot-config/` in a team's CLI repo).
+- **Team config** — Team-specific overrides, agents, and per-repo customizations from an external repo (e.g. `copilot-config/` in a team's CLI repo). Supports **profile directories** (`all/`, `backend/`, `frontend/`, `repos/{repoName}/`) so that frontend instructions don't leak into backend repos and vice versa. Overlay order: `all/` → `{profile}/` → `repos/{repoName}/`.
 
 ### Template variables
 
@@ -43,15 +43,17 @@ When editing these files, preserve the template variables — they are not meant
 - **`setup`** — Installs shared + team agents to `~/.copilot/installed-plugins/`
 - **`init`** — Interactive wizard → writes `~/.config/copilot-cli/team.yml`
 - **`status`** — Shows sync state per repo via GitHub API
+- **`ccli` (no args)** — Launches an interactive menu where the user picks a command
 
 ### Key modules
 
 - `src/actions/` — One file per command. `sync.ts` is the most complex (~355 lines)
-- `src/config/assembler.ts` — Generates `.github/` output files, replaces template variables, manages file headers
+- `src/config/assembler.ts` — Generates `.github/` output files, replaces template variables, manages file headers. Writes `instructions/repo-context.instructions.md` as the managed base-instructions file.
 - `src/config/detector.ts` — Scans `build.gradle.kts`/`package.json` for language, framework, DB, Kafka
 - `src/config/sync-config.ts` — Resolves profile → file list mappings from `config.yml`
 - `src/common/git.ts` — `Gitter` class wrapping `simple-git` (shallow clones, parallel ops)
 - `src/common/octokit.ts` — Lazy singleton Octokit using `gh auth token`
+- `src/common/version-check.ts` — Checks npm registry for newer ccli version; result cached for 24 hours. Runs automatically on `sync` and `setup`.
 
 ## Conventions
 
@@ -83,6 +85,8 @@ Uses `remeda` (imported as `R`) for data transformations — prefer it over manu
 ### Managed file marker
 
 Files written by `ccli` to target repos are prefixed with `<!-- Managed by copilot-cli -->`. The assembler only overwrites files with this marker — repo-owned files are never touched.
+
+The main managed base file is `instructions/repo-context.instructions.md` (`applyTo: "**"`). It contains assembled base-content (repo context, stack info, team rules) and is regenerated on every sync. In contrast, `copilot-instructions.md` is scaffolded once (first sync) and then owned by the repo — it is not overwritten on subsequent syncs.
 
 ### Stack detection drives assembly
 

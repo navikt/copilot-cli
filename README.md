@@ -53,12 +53,16 @@ ccli setup
 
 | Kommando | Beskrivelse |
 |----------|-------------|
+| `ccli` | Interaktiv meny — velg kommando uten å huske flagg |
 | `ccli init` | Sett opp team-config interaktivt |
 | `ccli sync --all` | Synk copilot-config til alle team-repos |
 | `ccli sync --repo <navn>` | Synk til ett spesifikt repo |
 | `ccli setup` | Installer agenter lokalt for Copilot Chat |
 | `ccli status` | Vis sync-status for team-repos |
 | `ccli config show` | Vis aktiv team-konfigurasjon |
+| `ccli --version` | Vis installert versjon |
+
+> **Versjonsjekk:** Ved `ccli sync` og `ccli setup` sjekkes det automatisk om en nyere versjon er tilgjengelig (cachet i 24 timer).
 
 ## Hvordan det fungerer
 
@@ -70,7 +74,7 @@ ccli setup
 
 2. **Team-config** (teamets eget repo) — Team-spesifikke instruksjoner, agenter og overrides
 
-### Stack-deteksjon
+### Stack-deteksjon og profiler
 
 `ccli sync` detekterer automatisk tech stack i hvert repo:
 
@@ -78,7 +82,11 @@ ccli setup
 - **Frontend**: Next.js, Vite, Aksel
 - **Microfrontend**: Vite + micro-frontend-oppsett
 
-Basert på deteksjonen velges riktig profil og relevante instruksjoner.
+Basert på deteksjonen velges riktig **profil** (f.eks. `backend` eller `frontend`). Profilen styrer hvilke instruksjoner fra delt config og team-config som inkluderes — slik at f.eks. frontend-instruksjoner ikke havner i backend-repos.
+
+### Managed base-instruksjoner
+
+Ved sync genereres `instructions/repo-context.instructions.md` som en managed fil med `applyTo: "**"`. Denne inneholder assemblet base-innhold (repo-kontekst, stack-info, team-regler) og oppdateres ved hver sync. `copilot-instructions.md` scaffoldes kun ved første sync og eies deretter av repoet.
 
 ### Discovery
 
@@ -86,17 +94,29 @@ Repos med topic `{team}-copilot` synkes. Opt-out = fjern topicet.
 
 ## Team-config struktur
 
+Team-config støtter profilmapper slik at du kan skille mellom backend- og frontend-instruksjoner:
+
 ```
 ditt-config-repo/copilot-config/
 ├── all/                      ← Synkes til ALLE repos
 │   ├── instructions/         ← .instructions.md-filer
 │   ├── prompts/              ← .prompt.md-filer
 │   └── copilot-instructions.md  ← Appendes under delt config
+├── backend/                  ← Kun repos med backend-profil
+│   ├── instructions/
+│   ├── prompts/
+│   └── copilot-instructions.md
+├── frontend/                 ← Kun repos med frontend-profil
+│   ├── instructions/
+│   ├── prompts/
+│   └── copilot-instructions.md
 ├── repos/{reponavn}/         ← Per-repo overrides
 │   └── instructions/
 └── agents/                   ← Installeres lokalt (ccli setup)
     └── min-agent.agent.md
 ```
+
+**Overlay-rekkefølge:** `all/` → `{profil}/` → `repos/{repoName}/` — filer fra senere lag overskriver tidligere.
 
 ## Utvikling
 

@@ -1,17 +1,17 @@
 import yargs, { Argv } from 'yargs'
 import { hideBin } from 'yargs/helpers'
-import chalk from 'chalk'
 
 import { initAction } from './actions/init.ts'
 import { syncAction } from './actions/sync.ts'
 import { setupAction } from './actions/setup.ts'
 import { statusAction } from './actions/status.ts'
-import { loadTeamConfig, getConfigPath } from './config/team-config.ts'
-import { log } from './common/log.ts'
+import { showConfigAction } from './actions/config.ts'
+import { CLI_VERSION } from './common/version.ts'
 
 export const getYargsParser = (argv: string[]): Argv =>
     yargs(hideBin(argv))
         .scriptName('ccli')
+        .version(CLI_VERSION)
         .command(
             'init',
             'Sett opp team-config',
@@ -50,35 +50,23 @@ export const getYargsParser = (argv: string[]): Argv =>
                         'show',
                         'Vis aktiv team-config',
                         () => {},
-                        async () => {
-                            const config = await loadTeamConfig()
-                            if (!config) {
-                                log(chalk.yellow(`Ingen config funnet. Kjør 'ccli init' for å sette opp.`))
-                                log(chalk.dim(`Forventet: ${getConfigPath()}`))
-                                return
-                            }
-                            log(chalk.bold('\n📋 Aktiv team-config:\n'))
-                            log(chalk.dim(`  Fil: ${getConfigPath()}\n`))
-                            log(`  Team:           ${chalk.cyan(config.team)}`)
-                            log(`  Organisasjon:   ${chalk.cyan(config.org)}`)
-                            log(`  Copilot-topic:  ${chalk.cyan(config.copilot_topic)}`)
-                            if (config.team_config) {
-                                log(`  Config-repo:    ${chalk.cyan(config.team_config.repo)}`)
-                                log(`  Config-path:    ${chalk.cyan(config.team_config.path)}`)
-                            }
-                            log('')
-                        },
+                        async () => showConfigAction(),
                     )
                     .demandCommand(1, 'Vennligst spesifiser en subkommando: show'),
             () => {},
         )
         .epilog(
             [
+                'Tips:',
+                '  Kjør ccli uten argumenter for interaktiv meny',
+                '',
                 'Eksempler:',
                 '  ccli init              Sett opp team-config',
-                '  ccli sync              Synk copilot-config til repos',
+                '  ccli sync --all        Synk copilot-config til alle repos',
+                '  ccli sync -r my-app    Synk et spesifikt repo',
                 '  ccli setup             Installer agenter lokalt',
                 '  ccli status            Vis sync-status',
                 '  ccli config show       Vis aktiv team-config',
             ].join('\n'),
         )
+        .demandCommand(1, 'Vennligst spesifiser en kommando, eller kjør ccli uten argumenter for interaktiv meny.')

@@ -4,6 +4,7 @@ import path from 'node:path'
 import chalk from 'chalk'
 
 import { log } from '../common/log.ts'
+import { checkForUpdates, displayUpdateNotice } from '../common/version-check.ts'
 import { ensureConfigRepos } from '../common/config-repos.ts'
 import { resolveHome } from '../common/env.ts'
 import { requireTeamConfig } from '../config/team-config.ts'
@@ -32,6 +33,9 @@ export interface SetupOptions {
 }
 
 export async function setupAction(options: SetupOptions = {}): Promise<void> {
+    const updateCheck = await checkForUpdates()
+    if (updateCheck?.isOutdated) displayUpdateNotice(updateCheck)
+
     const teamConfig = await requireTeamConfig()
     const { team } = teamConfig
 
